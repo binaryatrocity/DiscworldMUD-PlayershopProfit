@@ -1,0 +1,119 @@
+{% extends "layout.html" %}
+
+{% block left_top_bar %}
+    <button class="uk-button uk-button-default uk-button-small uk-border-rounded"
+        uk-toggle="target: #charts-container">Show/Hide Charts</button>
+{% endblock %}
+
+{% block center_top_bar %}
+    <h4 class="uk-text-center">{{ product.name }}</h4>
+{% endblock %}
+
+{% block content %}
+    <div id="charts-container" uk-grid hidden>
+        <div class="uk-width-1-1">
+            <canvas id="time-chart"></canvas>
+        </div>
+    </div>
+    <table id="products" class="uk-table uk-table-small uk-table-striped uk-table-hover uk-margin-large-left">
+        <thead>
+            <tr>
+                <th>Stock</th>
+                <th>Price (Raw)</th>
+                <th>Price (Cvt)</th>
+                <th>Update</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in product.entries %}
+                <tr>
+                    <td>{{ entry.stock }}</td>
+                    <td>{{ entry.raw_price }}</td>
+                    <td>A${{ entry.price }}</td>
+                    <td>{{ entry.date.isoformat() }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+        <caption class="uk-margin-small-bottom">{{ product.entries | length }} total entries.</caption>
+    </table>
+{% endblock %}
+
+{% block pagescripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.19.3/moment.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.1/Chart.js"></script>
+<script>
+    /* Chart.js */
+    var item_labels = [
+        "{{ product.name }}",
+    ];
+    var time_data = [
+        {% for entry in product.entries %}
+            {x: "{{ entry.date.isoformat() }}", y: {{ entry.stock }}},
+        {% endfor %}
+    ];
+
+    function init_time_chart(labels, timedata) {
+        var ctx = document.getElementById("time-chart").getContext('2d');
+        var chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Entries',
+                        backgroundColor: 'rgb(93, 173, 226)',
+                        borderColor: 'rgb(89, 131, 227)',
+                        fill: false,
+                        data: timedata,
+                    }
+                ],
+            },
+            options: {
+                responsive: true,
+                title: { display: true, text: 'Entries'},
+                scales: {
+                    xAxes: [
+                        {
+                            type: 'time',
+                            distribution: 'series',
+                            display: true,
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Date'
+                            },
+                            time: {
+                                unit: 'day',
+                                unitStepSize: 1,
+                                displayFormats: {
+                                    day: 'MMM D YYYY h:mm a'
+                                }
+                            },
+                            ticks: {
+                                major: {
+                                    fontStyle: "bold",
+                                    fontColor: "#FF0000"
+                                },
+                                source: 'data'
+                            }
+                        }
+                    ],
+                    yAxes: [
+                        {
+                            display: true,
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Stock'
+                            }
+                        }
+                    ]
+                }
+            }
+        });
+    }
+
+    /* On Page Ready */
+    document.addEventListener("DOMContentLoaded", function(event) {
+        init_time_chart(item_labels, time_data);
+    });
+</script>
+{% endblock %}

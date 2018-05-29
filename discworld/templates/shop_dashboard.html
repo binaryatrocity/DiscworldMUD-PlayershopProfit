@@ -1,0 +1,205 @@
+{% extends "layout.html" %}
+
+{% block left_top_bar %}
+    <button class="uk-button uk-button-default uk-button-small uk-border-rounded"
+        uk-toggle="target: #charts-container">Show/Hide Charts</button>
+{% endblock %}
+
+{% block center_top_bar %}
+    Total Funds Earned: 
+    <span id="total_funds_earned" class="uk-text-primary"></span>
+{% endblock %}
+
+{% block content %}
+    <div id="charts-container" uk-grid hidden>
+        <div class="uk-width-1-2">
+            <canvas id="sales-chart"></canvas>
+        </div>
+        <div class="uk-width-1-2">
+            <canvas id="stock-chart"></canvas>
+        </div>
+    </div>
+    <table id="products" class="uk-table uk-table-small uk-table-striped uk-table-hover">
+        <thead>
+            <tr>
+                <th class="uk-table-expand">Product Name</th>
+                <th>Current Stock</th>
+                <th>Total Stock</th>
+                <th>Total Sold</th>
+                <th>Total Earned</th>
+                <th>Latest Price</th>
+                <th>Last Update</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for product in products %}
+                {% if product.latest_entry != None %}
+                <tr>
+                    <td class="uk-table-link">
+                        <a href="/shop/product/{{ product.id }}">
+                            {{ product.name }}
+                        </a>
+                    </td>
+                    <td>{{ product.latest_entry.stock }}</td>
+                    <td>{{ product.total_stocked }}</td>
+                    <td>{{ product.total_sold }}</td>
+                    <td>A${{ product.total_earned }}</td>
+                    <td>
+                        <span title="{{ product.latest_entry.raw_price}}">
+                            A${{ product.latest_entry.price }}
+                        </span>
+                    </td>
+                    <td class="uk-text-nowrap">{{ product.latest_entry.date.isoformat() }}</td>
+                </tr>
+                {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
+
+{% block pagescripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.1/Chart.js"></script>
+<script>
+    function highlight_empty_stock() {
+        var rows = document.querySelectorAll('table#products > tbody > tr > td:nth-child(2)');
+        for(var row of rows) {
+            if(parseInt(row.textContent) == 0) {
+                row.parentElement.classList.add('uk-text-danger');
+            }
+        }
+    }
+
+    function calculate_total_earnings() {
+        var total_earnings = 0.00;
+        var earnings = document.querySelectorAll('table#products > tbody > tr > td:nth-child(5)');
+        for(var earning of earnings) {
+            total_earnings += parseFloat(earning.textContent.substring(2))
+        }
+        document.getElementById('total_funds_earned').textContent = "A$" + total_earnings.toFixed(2);
+    }
+
+    /* Chart.js */
+    var item_labels = [
+        {% for product in products %}
+        "{{ product.name }}",
+        {% endfor %}
+    ];
+    var sale_data = [
+        {% for product in products %}
+        {{ product.total_sold }},
+        {% endfor %}
+    ];
+    var earnings_data = [
+        {% for product in products %}
+        {{ product.total_earned }},
+        {% endfor %}
+    ];
+    var total_stock_data = [
+        {% for product in products %}
+        {{ product.total_stocked }},
+        {% endfor %}
+    ];
+    var current_stock_data = [
+        {% for product in products %}
+        {{ product.latest_entry.stock }},
+        {% endfor %}
+    ];
+
+    function init_sales_chart(labels, sold_data, earned_data) {
+        var ctx = document.getElementById("sales-chart").getContext('2d');
+        var chart = new Chart(ctx, {
+            type: 'horizontalBar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Sold',
+                        backgroundColor: 'rgb(93, 173, 226)',
+                        borderColor: 'rgb(89, 131, 227)',
+                        data: sold_data,
+                        xAxisID: 'quantity'
+                    },
+                    {
+                        label: 'Earned',
+                        backgroundColor: 'rgb(173, 93, 226)',
+                        borderColor: 'rgb(131, 89, 227)',
+                        data: earned_data,
+                        xAxisID: 'currency'
+                    }
+                ],
+            },
+            options: {
+                elements: { rectangle: { borderWidth: 2, } },
+                responsive: true,
+                legend: { position: 'bottom', },
+                title: { display: true, text: 'Sales & Earnings'},
+                scales: {
+                    xAxes: [
+                        {
+                            id: 'quantity',
+                            type: 'linear',
+                            position: 'top'
+                        },
+                        {
+                            id: 'currency',
+                            type: 'linear',
+                            position: 'bottom'
+                        }
+                    ]
+                }
+            }
+        });
+    }
+
+    function init_stock_chart(labels, total_data, current_data) {
+        var ctx = document.getElementById("stock-chart").getContext('2d');
+        var chart = new Chart(ctx, {
+            type: 'horizontalBar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Total',
+                        backgroundColor: 'rgb(54, 84, 126)',
+                        data: total_data,
+                        xAxisID: 'quantity'
+                    },
+                    {
+                        label: 'Current',
+                        backgroundColor: 'rgb(73, 133, 226)',
+                        data: current_data,
+                        xAxisID: 'big_quantity'
+                    }
+                ],
+            },
+            options: {
+                responsive: true,
+                legend: { position: 'bottom', },
+                title: { display: true, text: 'Total/Current Stock'},
+                scales: {
+                    xAxes: [
+                        {
+                            id: 'quantity',
+                            type: 'linear',
+                            position: 'top'
+                        },
+                        {
+                            id: 'big_quantity',
+                            type: 'linear',
+                            position: 'bottom'
+                        }
+                    ]
+                }
+            }
+        });
+    }
+
+    /* On Page Ready */
+    document.addEventListener("DOMContentLoaded", function(event) {
+        highlight_empty_stock();
+        calculate_total_earnings();
+        init_sales_chart(item_labels, sale_data, earnings_data);
+        init_stock_chart(item_labels, total_stock_data, current_stock_data);
+    });
+</script>
+{% endblock %}
